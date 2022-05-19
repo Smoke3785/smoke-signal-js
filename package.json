@@ -1,0 +1,29 @@
+{
+  "name": "smoke-signal-js",
+  "version": "1.0.0",
+  "description": "A JavaScript port of Tobster's TobComm.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "jsdoc": "jsdoc -a all -c jsdoc.json -r -R README.md index.js -d docs/jsdoc && jsdoc2md --files index.js > docs/API.md"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Smoke3785/smoke-signal-js.git"
+  },
+  "author": "Smoke3785",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Smoke3785/smoke-signal-js/issues"
+  },
+  "homepage": "https://owenrossikeen.com/docs/smoke-signal-js",
+  "devDependencies": {
+    "docdash": "^1.2.0",
+    "jsdoc": "^3.6.10",
+    "jsdoc-to-markdown": "^7.1.1"
+  },
+  "dependencies": {
+    "bytebuffer": "^5.0.1",
+    "smoke-machine-js": "^1.0.5"
+  }
+}
