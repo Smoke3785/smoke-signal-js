@@ -77,6 +77,16 @@ const sendCommand = ({ lCommand, lInstanceNumber = 0 }, context) => {
     }),
   });
 };
+
+// Experimental
+const sendCommandP = ({ lCommand, lInstanceNumber = 0 }, context) => {
+  return {
+    cData: getSendCommandData({
+      lCommand,
+      lInstanceNumber,
+    }),
+  };
+};
 /**
  * Sends an object from a LaunchLike server with the given code and data.
  * @param {object} {lObject, lInstanceNumber, lStart, cData}
@@ -95,6 +105,22 @@ const sendObject = (
     }),
   });
 };
+
+// Experimental
+const sendObjectP = (
+  { lObject, lInstanceNumber = 0, lStart = 0, cData },
+  context
+) => {
+  return {
+    cData: getSendObjectData({
+      lObject,
+      lInstanceNumber,
+      lStart,
+      cData,
+    }),
+  };
+};
+
 /**
  * Requests an object from a LaunchLike server with the given code.
  * @param {object} {cData} - An object containing the request code, the instance number, the starting position, and the length. Generally only the data is provided.
@@ -112,6 +138,20 @@ const requestObject = (
       lLength,
     }),
   });
+};
+// Experimental
+const requestObjectP = (
+  { lObject, lInstanceNumber = 0, lStart = 0, lLength = 0 },
+  context
+) => {
+  return {
+    cData: getRequestObjectData({
+      lObject,
+      lInstanceNumber,
+      lStart,
+      lLength,
+    }),
+  };
 };
 /**
  * Takes a Tobject and parses out a message type definition and length for the data.
@@ -283,6 +323,181 @@ const processBytes = async (cData, context) => {
   });
 };
 
+const processBytesP = async (cData, context) => {
+  return new Promise(async (res, rej) => {
+    if (!context) return;
+    // What stage of byte processing the function is in.
+    var processingState = 'idle';
+
+    var byteBufferInt;
+    var byteBufferData;
+    var cMessageType;
+    var lObjectType;
+    var lInstanceNumber;
+    var lStart;
+    var lLength;
+
+    const discharge = ({ reason }, context) => {
+      var lReceivedObjectType = lObjectType;
+      var lReceivedInstanceNumber = lInstanceNumber;
+
+      switch (cMessageType) {
+        case MESSAGE_TYPE_REQUEST:
+          {
+            let lReceivedStart = lStart;
+            let lReceivedLength = lLength;
+
+            res({
+              messageType: 'request',
+              data: {
+                lObject: lReceivedObjectType,
+                lInstanceNumber: lReceivedInstanceNumber,
+                lOffset: lReceivedStart,
+                lLength: lReceivedLength,
+              },
+            });
+          }
+
+          break;
+        case MESSAGE_TYPE_SEND: {
+          const cData = [...byteBufferData.buffer];
+          const lReceivedStart = lStart;
+
+          res({
+            messageType: 'object',
+            data: {
+              lObject: lReceivedObjectType,
+              lInstanceNumber: lReceivedInstanceNumber,
+              lOffset: lReceivedStart,
+              cData,
+            },
+          });
+          break;
+        }
+        case MESSAGE_TYPE_COMMAND:
+          {
+            res({
+              messageType: 'command',
+              data: {
+                lCommand: lReceivedObjectType,
+                lInstanceNumber,
+              },
+            });
+          }
+          break;
+        default:
+          let e =
+            'Somehow an invalid data type in the discharge. Something is monumentally messed up';
+          console.log(e);
+          rej(e);
+          break;
+      }
+      processingState = 'idle';
+      return;
+    };
+
+    cData.forEach((cByte, idx) => {
+      if (processingState == 'idle') {
+        cMessageType = cByte;
+        // Check if cMessageType equals a valid message type
+        if (
+          cMessageType == MESSAGE_TYPE_REQUEST ||
+          cMessageType == MESSAGE_TYPE_SEND ||
+          cMessageType == MESSAGE_TYPE_COMMAND
+        ) {
+          // Change the processing state
+          processingState = 'objectNo';
+          byteBufferInt = new ByteBuffer(SIZEOF_INT);
+          return;
+        } else {
+          console.log(`Invalid MESSAGE_TYPE`);
+          return;
+        }
+        return;
+      }
+      if (processingState == 'objectNo') {
+        byteBufferInt.writeByte(cByte);
+        // Once all slots in the byte buffer are occupied, move to next state
+        if (byteBufferInt.offset == byteBufferInt.limit) {
+          //  Store object type
+
+          lObjectType = helperFunctions.intFromBytes([...byteBufferInt.buffer]);
+          // reset byteBufferInt
+          byteBufferInt = new ByteBuffer(SIZEOF_INT);
+          processingState = 'instanceNo';
+          return;
+        }
+        return;
+      }
+      if (processingState == 'instanceNo') {
+        byteBufferInt.writeByte(cByte);
+
+        if (byteBufferInt.offset == byteBufferInt.limit) {
+          // Store the instance number
+          lInstanceNumber = helperFunctions.intFromBytes([
+            ...byteBufferInt.buffer,
+          ]);
+          // Reset byteBufferInt
+          byteBufferInt = new ByteBuffer(SIZEOF_INT);
+          // Decide what to do depending on message type.
+          if (cMessageType == MESSAGE_TYPE_COMMAND) {
+            discharge({ reason: 'command' }, context);
+            return;
+          }
+          processingState = 'start';
+          return;
+        }
+        return;
+      }
+      if (processingState == 'start') {
+        byteBufferInt.writeByte(cByte);
+        if (byteBufferInt.offset == byteBufferInt.limit) {
+          // Store the start position
+          lStart = helperFunctions.intFromBytes([...byteBufferInt.buffer]);
+
+          // Reset byteBufferInt
+          byteBufferInt = new ByteBuffer(SIZEOF_INT);
+          processingState = 'length';
+          return;
+        }
+        return;
+      }
+      if (processingState == 'length') {
+        // 0, 0, 4, 75
+        byteBufferInt.writeByte(cByte);
+
+        if (byteBufferInt.offset == byteBufferInt.limit) {
+          // Store the length
+          lLength = helperFunctions.intFromBytes([...byteBufferInt.buffer]);
+          // Reset byteBufferInt
+          byteBufferInt = new ByteBuffer(SIZEOF_INT);
+          // Allocate length for data or Discharge, if no data payload
+
+          if (cMessageType == MESSAGE_TYPE_REQUEST) {
+            discharge({ reason: 'request' }, context);
+            return;
+          }
+          byteBufferData = new ByteBuffer(lLength);
+          processingState = 'data';
+          return;
+        }
+        return;
+      }
+      if (processingState == 'data') {
+        byteBufferData.writeByte(cByte);
+
+        // Once chunk of data is fully processed, discharge
+        if (byteBufferData.offset == byteBufferData.limit) {
+          discharge({ reason: 'data finished' }, context);
+          return;
+        }
+        return;
+      }
+      return;
+    });
+  });
+};
+
 module.exports.smokeSignal = {
   getSendObjectData,
   getSendCommandData,
@@ -292,6 +507,8 @@ module.exports.smokeSignal = {
   requestObject,
   processBytes,
 };
+
+module.exports.smokeSignalPromise = {};
 
 module.exports.constants = {
   OBJECT_HEADER_SIZE,
