@@ -1,6 +1,6 @@
 {
   "name": "smoke-signal-js",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "A JavaScript port of Tobster's TobComm.",
   "main": "index.js",
   "scripts": {
