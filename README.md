@@ -1,4 +1,5 @@
 ![smoke-signal-js logo](https://raw.githubusercontent.com/Smoke3785/smoke-signal-js/main/docs/smokeSignal.png?token=GHSAT0AAAAAABT2Z44Z466E3WDWUICWF3C4YUGSZTQ)
+
 # smoke-signal-js
 
 A JavaScript port of Tobster's communication library, TobComm. Be aware - this implementation is functional, not class-based! This is because I am not Bri\*ish.
@@ -19,7 +20,7 @@ const { smokeSignal } = require('smoke-signal-js');
 
 # Documentation
 
-[JSdocs](#) **|** [View on Website](https://owenrossikeen.com/docs/smoke-signal-js)
+[GitHub](https://github.com/Smoke3785/smoke-signal-js) **|** [NPM](https://www.npmjs.com/package/smoke-signal-js) **|** [View on Website](https://owenrossikeen.com/docs/smoke-signal-js) **|** [Donate](https://owenrossikeen.com/donate)
 
 ## Functions
 
